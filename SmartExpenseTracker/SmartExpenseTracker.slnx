@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../ExpenseTrackerUI/ExpenseTrackerUI.csproj" Id="98e4dfef-dc99-41eb-812d-dfc4c9d4983d" />
+  <Project Path="SmartExpenseTracker.csproj" />
+</Solution>

@@ -1,0 +1,8 @@
+@SmartExpenseTracker_HostAddress = https://localhost:7162
+
+// Enter url :  https://localhost:7162/swagger
+
+GET {{SmartExpenseTracker_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,4 @@
+I used SQLite for simplicity and portability during development. 
+It allows quick setup without external dependencies, and the project can easily switch to SQL Server using EF Core configuration.
+
+I configured both projects to run simultaneously using multiple startup projects, and the Blazor frontend communicates with the API using HttpClient with proper CORS configuration.

@@ -1,0 +1,110 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@inject ExpenseService Service
+
+<h3 class="mb-3">Expense Tracker</h3>
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+@* @if (clickCount > 0)
+{
+    <div class="alert alert-info">Add clicked @clickCount time(s)</div>
+} *@
+
+<div class="card p-3 mb-4">
+
+    <input class="form-control mb-2" placeholder="Title" @bind="newExpense.Title" />
+    
+    <input class="form-control mb-2" type="number" placeholder="Amount" @bind="newExpense.Amount" />
+
+    <select class="form-control mb-2" @bind="newExpense.Category">
+        <option value="">Select Category</option>
+        <option>Food</option>
+        <option>Travel</option>
+        <option>Bills</option>
+    </select>
+
+    <button class="btn btn-primary" @onclick="AddExpense">Add Expense</button>
+
+</div>
+
+<table class="table table-striped">
+    <thead>
+    <tr>
+        <th>Title</th>
+        <th>Amount</th>
+        <th>Category</th>
+        <th>Date</th>
+        <th>Action</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    @foreach (var exp in expenses)
+    {
+        <tr>
+            <td>@exp.Title</td>
+            <td>@exp.Amount</td>
+            <td>@exp.Category</td>
+            <td>@exp.Date.ToShortDateString()</td>
+            <td>
+                <button class="btn btn-danger btn-sm" @onclick="() => DeleteExpense(exp.Id)">
+                    Delete
+                </button>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@code {
+    List<Expense> expenses = new();
+    Expense newExpense = new();
+    string? errorMessage;
+    int clickCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            expenses = await Service.GetExpenses();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load expenses: {ex.Message}";
+        }
+    }
+
+    async Task AddExpense()
+    {
+        clickCount++;        // increments instantly before any await
+        errorMessage = null;
+        try
+        {
+            await Service.AddExpense(newExpense);
+            expenses = await Service.GetExpenses();
+            newExpense = new Expense();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to add expense: {ex.Message}";
+        }
+    }
+
+    async Task DeleteExpense(int id)
+    {
+        errorMessage = null;
+        try
+        {
+            await Service.DeleteExpense(id);
+            expenses = await Service.GetExpenses();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete expense: {ex.Message}";
+        }
+    }
+}
