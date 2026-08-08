@@ -3,7 +3,10 @@ using System.Net.Http.Json;
 
 namespace ExpenseTrackerUI.Services
 {
-    public class ExpenseService
+    /// <summary>
+    /// Implementation of expense service using HTTP client to communicate with the backend API.
+    /// </summary>
+    public class ExpenseService : IExpenseService
     {
         private readonly HttpClient _http;
 

@@ -1,3 +1,13 @@
+This is an ASP.NET Core Web API project with a Blazor frontend. The API is built using .NET 10 and follows RESTful principles, while the Blazor frontend provides a rich user interface for interacting with the API.
+
+clean arhiteture is setup here ,
+/Models
+/Data
+/Controllers
+/Services
+/Repositories
+/DTOs
+
 I used SQLite for simplicity and portability during development. 
 It allows quick setup without external dependencies, and the project can easily switch to SQL Server using EF Core configuration.
 

@@ -1,36 +1,36 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using MediatR;
+using Microsoft.AspNetCore.Mvc;
 using SmartExpenseTracker.CQRS.Commands;
 using SmartExpenseTracker.CQRS.Queries;
 using SmartExpenseTracker.Models;
 
 namespace SmartExpenseTracker.Controllers
 {
+    /// <summary>
+    /// API controller for expense operations. Uses MediatR for CQRS pattern.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class ExpenseController : ControllerBase
     {
-        private readonly AddExpenseHandler _addHandler;
-        private readonly GetExpensesHandler _getHandler;
-        private readonly DeleteExpenseHandler _deleteHandler;
+        private readonly IMediator _mediator;
 
-        public ExpenseController(AddExpenseHandler addHandler, GetExpensesHandler getHandler, DeleteExpenseHandler deleteHandler)
+        public ExpenseController(IMediator mediator)
         {
-            _addHandler = addHandler;
-            _getHandler = getHandler;
-            _deleteHandler = deleteHandler;
+            _mediator = mediator;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var expenses = await _getHandler.Handle();
+            var expenses = await _mediator.Send(new GetExpensesQuery());
             return Ok(expenses);
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var expenses = await _getHandler.Handle();
+            var expenses = await _mediator.Send(new GetExpensesQuery());
             var expense = expenses.FirstOrDefault(e => e.Id == id);
             if (expense is null)
                 return NotFound();
@@ -43,7 +43,7 @@ namespace SmartExpenseTracker.Controllers
             if (month < 1 || month > 12 || year < 1)
                 return BadRequest("Invalid month or year.");
 
-            var expenses = await _getHandler.Handle();
+            var expenses = await _mediator.Send(new GetExpensesQuery());
             var total = expenses
                 .Where(e => e.Date.Month == month && e.Date.Year == year)
                 .Sum(e => e.Amount);
@@ -53,14 +53,14 @@ namespace SmartExpenseTracker.Controllers
         [HttpPost]
         public async Task<IActionResult> Add(AddExpenseCommand command)
         {
-            var result = await _addHandler.Handle(command);
+            var result = await _mediator.Send(command);
             return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var deleted = await _deleteHandler.Handle(id);
+            var deleted = await _mediator.Send(new DeleteExpenseCommand(id));
             if (!deleted)
                 return NotFound();
 

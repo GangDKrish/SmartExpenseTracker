@@ -1,8 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using SmartExpenseTracker.CQRS.Commands;
-using SmartExpenseTracker.CQRS.Queries;
 using SmartExpenseTracker.Data;
-using SmartExpenseTracker.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,10 +23,8 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddScoped<IExpenseRepository, ExpenseRepository>();
-builder.Services.AddScoped<AddExpenseHandler>();
-builder.Services.AddScoped<GetExpensesHandler>();
-builder.Services.AddScoped<DeleteExpenseHandler>();
+// Register MediatR for CQRS pattern
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
 var app = builder.Build();
 

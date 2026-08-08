@@ -1,10 +1,14 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
+using Microsoft.EntityFrameworkCore;
 using SmartExpenseTracker.Data;
 using SmartExpenseTracker.Models;
 
 namespace SmartExpenseTracker.CQRS.Queries
 {
-    public class GetExpensesHandler
+    /// <summary>
+    /// Handler for GetExpensesQuery that retrieves all expenses from the database.
+    /// </summary>
+    public class GetExpensesHandler : IRequestHandler<GetExpensesQuery, List<Expense>>
     {
         private readonly AppDbContext _context;
 
@@ -13,9 +17,9 @@ namespace SmartExpenseTracker.CQRS.Queries
             _context = context;
         }
 
-        public async Task<List<Expense>> Handle()
+        public async Task<List<Expense>> Handle(GetExpensesQuery request, CancellationToken cancellationToken)
         {
-            return await _context.Expenses.ToListAsync();
+            return await _context.Expenses.ToListAsync(cancellationToken);
         }
     }
 }
