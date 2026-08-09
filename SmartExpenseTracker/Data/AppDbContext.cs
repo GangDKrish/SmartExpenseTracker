@@ -10,5 +10,16 @@ namespace SmartExpenseTracker.Data
         }
 
         public DbSet<Expense> Expenses { get; set; }
+        public DbSet<User> Users { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Expense>()
+                .HasIndex(e => e.UserId);
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Email)
+                .IsUnique();
+        }
     }
 }

@@ -1,11 +1,9 @@
 ﻿using ExpenseTrackerUI.Models;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 
 namespace ExpenseTrackerUI.Services
 {
-    /// <summary>
-    /// Implementation of expense service using HTTP client to communicate with the backend API.
-    /// </summary>
     public class ExpenseService : IExpenseService
     {
         private readonly HttpClient _http;
@@ -15,24 +13,35 @@ namespace ExpenseTrackerUI.Services
             _http = http;
         }
 
-        public async Task<List<Expense>> GetExpenses()
+        public async Task<List<Expense>> GetExpenses(string userEmail)
         {
-            return await _http.GetFromJsonAsync<List<Expense>>("api/expense");
+            var request = new HttpRequestMessage(HttpMethod.Get, "api/expense");
+            request.Headers.Add("X-User-Email", userEmail);
+            var response = await _http.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<List<Expense>>() ?? new();
         }
 
-        public async Task AddExpense(Expense expense)
+        public async Task AddExpense(Expense expense, string userEmail)
         {
-            await _http.PostAsJsonAsync("api/expense", new
+            var request = new HttpRequestMessage(HttpMethod.Post, "api/expense");
+            request.Headers.Add("X-User-Email", userEmail);
+            request.Content = JsonContent.Create(new
             {
                 expense.Title,
                 expense.Amount,
                 expense.Category
             });
+            var response = await _http.SendAsync(request);
+            response.EnsureSuccessStatusCode();
         }
 
-        public async Task DeleteExpense(int id)
+        public async Task DeleteExpense(int id, string userEmail)
         {
-            await _http.DeleteAsync($"api/expense/{id}");
+            var request = new HttpRequestMessage(HttpMethod.Delete, $"api/expense/{id}");
+            request.Headers.Add("X-User-Email", userEmail);
+            var response = await _http.SendAsync(request);
+            response.EnsureSuccessStatusCode();
         }
     }
 }

@@ -1,0 +1,43 @@
+@* Statistics Card Component for KPI Display *@
+
+<div class="stat-card fade-in">
+    @if (!string.IsNullOrEmpty(IconClass))
+    {
+        <div class="stat-card-icon @ColorClass">
+            <i class="@IconClass"></i>
+        </div>
+    }
+
+    <div class="stat-card-label">@Label</div>
+    <div class="stat-card-value">@Value</div>
+
+    @if (!string.IsNullOrEmpty(Trend))
+    {
+        <div class="stat-card-trend @TrendClass">
+            <i class="bi bi-@(IsPositiveTrend ? "arrow-up" : "arrow-down")"></i>
+            @Trend
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Label { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Value { get; set; } = string.Empty;
+
+    [Parameter]
+    public string IconClass { get; set; } = string.Empty;
+
+    [Parameter]
+    public string ColorClass { get; set; } = "primary";
+
+    [Parameter]
+    public string? Trend { get; set; }
+
+    [Parameter]
+    public bool IsPositiveTrend { get; set; } = true;
+
+    private string TrendClass => IsPositiveTrend ? "positive" : "negative";
+}

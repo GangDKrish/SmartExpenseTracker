@@ -9,9 +9,6 @@ namespace SmartExpenseTracker.Models
     /// </summary>
     public class Expense
     {
-        /// <summary>
-        /// Unique identifier (auto-generated). Gaps in sequence are expected after deletions.
-        /// </summary>
         public int Id { get; set; }
 
         [Required(ErrorMessage = "Title is required")]
@@ -27,5 +24,11 @@ namespace SmartExpenseTracker.Models
         public string Category { get; set; }
 
         public DateTime Date { get; set; }
+
+        /// <summary>
+        /// The email of the user who owns this expense.
+        /// </summary>
+        [StringLength(256)]
+        public string UserId { get; set; } = string.Empty;
     }
 }

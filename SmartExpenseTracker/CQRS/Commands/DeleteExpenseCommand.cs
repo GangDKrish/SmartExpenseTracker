@@ -2,16 +2,15 @@ using MediatR;
 
 namespace SmartExpenseTracker.CQRS.Commands
 {
-    /// <summary>
-    /// Command to delete an expense by ID.
-    /// </summary>
     public class DeleteExpenseCommand : IRequest<bool>
     {
         public int Id { get; set; }
+        public string UserId { get; set; } = string.Empty;
 
-        public DeleteExpenseCommand(int id)
+        public DeleteExpenseCommand(int id, string userId = "")
         {
             Id = id;
+            UserId = userId;
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using AutoMapper;
+using MediatR;
 using SmartExpenseTracker.Data;
 using SmartExpenseTracker.Models;
 
@@ -22,21 +23,18 @@ namespace SmartExpenseTracker.CQRS.Commands
     public class AddExpenseHandler : IRequestHandler<AddExpenseCommand, Expense>
     {
         private readonly AppDbContext _context;
+        private readonly IMapper _mapper;
 
-        public AddExpenseHandler(AppDbContext context)
+        public AddExpenseHandler(AppDbContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
         public async Task<Expense> Handle(AddExpenseCommand command, CancellationToken cancellationToken)
         {
-            var expense = new Expense
-            {
-                Title = command.Title,
-                Amount = command.Amount,
-                Category = command.Category,
-                Date = DateTime.Now
-            };
+            var expense = _mapper.Map<Expense>(command);
+            expense.UserId = command.UserId;
             _context.Expenses.Add(expense);
             await _context.SaveChangesAsync(cancellationToken);
             return expense;

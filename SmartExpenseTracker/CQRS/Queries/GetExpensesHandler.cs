@@ -19,7 +19,9 @@ namespace SmartExpenseTracker.CQRS.Queries
 
         public async Task<List<Expense>> Handle(GetExpensesQuery request, CancellationToken cancellationToken)
         {
-            return await _context.Expenses.ToListAsync(cancellationToken);
+            return await _context.Expenses
+                .Where(e => e.UserId == request.UserId)
+                .ToListAsync(cancellationToken);
         }
     }
 }

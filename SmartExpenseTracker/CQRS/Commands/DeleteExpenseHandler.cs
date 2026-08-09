@@ -18,7 +18,7 @@ namespace SmartExpenseTracker.CQRS.Commands
         public async Task<bool> Handle(DeleteExpenseCommand command, CancellationToken cancellationToken)
         {
             var expense = await _context.Expenses.FindAsync(new object[] { command.Id }, cancellationToken);
-            if (expense is null)
+            if (expense is null || expense.UserId != command.UserId)
                 return false;
 
             _context.Expenses.Remove(expense);

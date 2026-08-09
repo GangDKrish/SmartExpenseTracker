@@ -1,0 +1,152 @@
+@using ExpenseTrackerUI.Models
+@inject IJSRuntime JS
+
+<div class="chart-container">
+    <canvas id="@CanvasId"></canvas>
+</div>
+
+@code {
+    [Parameter]
+    public List<Expense> Expenses { get; set; } = new();
+
+    [Parameter]
+    public string ChartType { get; set; } = "doughnut";
+
+    [Parameter]
+    public string CanvasId { get; set; } = "expenseChart";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        Console.WriteLine($"ExpenseChart OnAfterRenderAsync - firstRender: {firstRender}, Expenses count: {Expenses?.Count ?? 0}");
+
+        if (Expenses != null && Expenses.Any())
+        {
+            await RenderChart();
+        }
+        else
+        {
+            Console.WriteLine("No expenses to render in chart");
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Console.WriteLine($"ExpenseChart OnParametersSetAsync - Expenses count: {Expenses?.Count ?? 0}");
+
+        // Destroy previous chart before re-rendering
+        if (Expenses != null && Expenses.Any())
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("destroyChart", CanvasId);
+            }
+            catch
+            {
+                // Chart might not exist yet, ignore error
+            }
+        }
+    }
+
+    private async Task RenderChart()
+    {
+        try
+        {
+            // Ensure canvas element exists
+            await Task.Delay(100);
+
+            var categoryData = Expenses
+                .GroupBy(e => e.Category)
+                .Select(g => new
+                {
+                    Category = g.Key,
+                    Total = g.Sum(e => e.Amount)
+                })
+                .OrderByDescending(x => x.Total)
+                .ToList();
+
+            if (!categoryData.Any())
+            {
+                Console.WriteLine("No category data to display in chart");
+                return;
+            }
+
+            var labels = categoryData.Select(x => x.Category).ToArray();
+            var data = categoryData.Select(x => (double)x.Total).ToArray();
+
+            Console.WriteLine($"Rendering chart with {labels.Length} categories: {string.Join(", ", labels)}");
+
+            var colors = new[]
+            {
+                "rgba(245, 158, 11, 0.8)",  // Food - Orange
+                "rgba(59, 130, 246, 0.8)",  // Travel - Blue
+                "rgba(239, 68, 68, 0.8)",   // Bills - Red
+                "rgba(16, 185, 129, 0.8)",  // Green
+                "rgba(139, 92, 246, 0.8)"   // Purple
+            };
+
+            var chartData = new
+            {
+                type = ChartType,
+                data = new
+                {
+                    labels = labels,
+                    datasets = new[]
+                    {
+                        new
+                        {
+                            label = "Expenses by Category",
+                            data = data,
+                            backgroundColor = colors,
+                            borderWidth = 2,
+                            borderColor = "#ffffff"
+                        }
+                    }
+                },
+                options = new
+                {
+                    responsive = true,
+                    maintainAspectRatio = false,
+                    plugins = new
+                    {
+                        legend = new
+                        {
+                            position = "bottom",
+                            labels = new
+                            {
+                                color = "var(--text-primary)",
+                                font = new
+                                {
+                                    family = "Poppins",
+                                    size = 12
+                                }
+                            }
+                        },
+                        tooltip = new
+                        {
+                            backgroundColor = "rgba(0, 0, 0, 0.8)",
+                            padding = 12,
+                            titleFont = new
+                            {
+                                family = "Poppins",
+                                size = 14
+                            },
+                            bodyFont = new
+                            {
+                                family = "Poppins",
+                                size = 12
+                            }
+                        }
+                    }
+                }
+            };
+
+            await JS.InvokeVoidAsync("createChart", CanvasId, chartData);
+            Console.WriteLine($"Chart created successfully for canvas: {CanvasId}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error rendering chart: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        }
+    }
+}
