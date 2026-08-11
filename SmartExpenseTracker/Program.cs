@@ -1,4 +1,7 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using SmartExpenseTracker.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +17,40 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod();
     });
 });
+
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var signingKeyValue = jwtSettings["SigningKey"];
+
+if (string.IsNullOrWhiteSpace(signingKeyValue))
+    throw new InvalidOperationException("JwtSettings:SigningKey must be configured and non-empty.");
+
+if (signingKeyValue.Length < 32)
+    throw new InvalidOperationException("JwtSettings:SigningKey must be at least 32 characters long.");
+
+var signingKey = new SymmetricSecurityKey(
+    Encoding.UTF8.GetBytes(signingKeyValue));
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = signingKey,
+        ValidateIssuer = true,
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidateAudience = true,
+        ValidAudience = jwtSettings["Audience"],
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+builder.Services.AddAuthorization();
 
 builder.Services.AddControllers();
 
@@ -40,6 +77,7 @@ app.UseHttpsRedirection();
 
 app.UseCors("AllowExpenseTrackerUI");
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

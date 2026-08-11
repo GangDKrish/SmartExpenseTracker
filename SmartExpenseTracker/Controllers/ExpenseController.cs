@@ -1,15 +1,17 @@
 ﻿using AutoMapper;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartExpenseTracker.CQRS.Commands;
 using SmartExpenseTracker.CQRS.Queries;
 using SmartExpenseTracker.DTOs;
-using SmartExpenseTracker.Models;
+using System.Security.Claims;
 
 namespace SmartExpenseTracker.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class ExpenseController : ControllerBase
     {
         private readonly IMediator _mediator;
@@ -22,7 +24,7 @@ namespace SmartExpenseTracker.Controllers
         }
 
         private string GetUserEmail() =>
-            Request.Headers["X-User-Email"].FirstOrDefault() ?? string.Empty;
+            User.FindFirst(ClaimTypes.Email)?.Value ?? string.Empty;
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
@@ -52,6 +54,20 @@ namespace SmartExpenseTracker.Controllers
             var result = await _mediator.Send(command);
             var response = _mapper.Map<ExpenseDto>(result);
             return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateExpenseDto dto)
+        {
+            var command = _mapper.Map<UpdateExpenseCommand>(dto);
+            command.Id = id;
+            command.UserId = GetUserEmail();
+
+            var updated = await _mediator.Send(command);
+            if (!updated)
+                return NotFound();
+
+            return NoContent();
         }
 
         [HttpDelete("{id}")]

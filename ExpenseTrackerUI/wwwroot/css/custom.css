@@ -234,6 +234,27 @@ body {
     color: white;
 }
 
+.btn-gradient-edit {
+    background: var(--info-gradient);
+    border: none;
+    color: #ffffff;
+    font-weight: var(--font-weight-semibold);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-base);
+}
+
+.btn-gradient-edit:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-md);
+    color: #ffffff;
+}
+
+.btn-gradient-edit:focus-visible,
+.btn-gradient-danger:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 2px;
+}
+
 .btn-icon {
     width: 36px;
     height: 36px;
@@ -590,6 +611,15 @@ body {
 
 [data-theme="dark"] .theme-toggle i {
     color: #fbbf24;
+}
+
+[data-theme="dark"] .btn-gradient-edit {
+    border: 1px solid rgba(125, 211, 252, 0.75);
+    box-shadow: 0 0 0 1px rgba(2, 132, 199, 0.35);
+}
+
+[data-theme="dark"] .btn-gradient-edit:hover {
+    box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.85), var(--shadow-md);
 }
 
 /* Toast Notifications - fixed position, no page scroll */

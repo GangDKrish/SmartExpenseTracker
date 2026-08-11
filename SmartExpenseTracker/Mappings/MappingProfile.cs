@@ -11,6 +11,7 @@ namespace SmartExpenseTracker.Mappings
         {
             CreateMap<Expense, ExpenseDto>();
             CreateMap<CreateExpenseDto, AddExpenseCommand>();
+            CreateMap<UpdateExpenseDto, UpdateExpenseCommand>();
             CreateMap<AddExpenseCommand, Expense>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.Date, opt => opt.MapFrom(_ => DateTime.Now));

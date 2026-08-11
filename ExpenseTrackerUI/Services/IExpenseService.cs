@@ -8,8 +8,9 @@ namespace ExpenseTrackerUI.Services
     /// </summary>
     public interface IExpenseService
     {
-        Task<List<Expense>> GetExpenses(string userEmail);
-        Task AddExpense(Expense expense, string userEmail);
-        Task DeleteExpense(int id, string userEmail);
+        Task<List<Expense>> GetExpenses(string accessToken);
+        Task AddExpense(Expense expense, string accessToken);
+        Task UpdateExpense(Expense expense, string accessToken);
+        Task DeleteExpense(int id, string accessToken);
     }
 }

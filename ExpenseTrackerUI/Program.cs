@@ -68,16 +68,20 @@ app.MapPost("/api/auth/login", async (HttpContext context) =>
     }
 
     var result = await response.Content.ReadFromJsonAsync<AuthResponse>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-    var displayName = !string.IsNullOrEmpty(result!.Name) ? result.Name : result.Email;
+    if (result?.User == null || string.IsNullOrWhiteSpace(result.Token))
+        return Results.Json(new { message = "Invalid authentication response." }, statusCode: 500);
+
+    var displayName = !string.IsNullOrEmpty(result.User.Name) ? result.User.Name : result.User.Email;
     var claims = new List<Claim>
     {
-        new(ClaimTypes.Email, result.Email),
-        new(ClaimTypes.Name, displayName)
+        new(ClaimTypes.Email, result.User.Email),
+        new(ClaimTypes.Name, displayName),
+        new("access_token", result.Token)
     };
     var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
     await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
 
-    return Results.Ok(new { email = result.Email });
+    return Results.Ok(new { email = result.User.Email });
 });
 
 app.MapPost("/api/auth/register", async (HttpContext context) =>
@@ -95,17 +99,21 @@ app.MapPost("/api/auth/register", async (HttpContext context) =>
     }
 
     var result = await response.Content.ReadFromJsonAsync<AuthResponse>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+    if (result?.User == null || string.IsNullOrWhiteSpace(result.Token))
+        return Results.Json(new { message = "Invalid authentication response." }, statusCode: 500);
+
     // Auto sign-in after registration
-    var displayName = !string.IsNullOrEmpty(result!.Name) ? result.Name : result.Email;
+    var displayName = !string.IsNullOrEmpty(result.User.Name) ? result.User.Name : result.User.Email;
     var claims = new List<Claim>
     {
-        new(ClaimTypes.Email, result.Email),
-        new(ClaimTypes.Name, displayName)
+        new(ClaimTypes.Email, result.User.Email),
+        new(ClaimTypes.Name, displayName),
+        new("access_token", result.Token)
     };
     var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
     await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
 
-    return Results.Ok(new { email = result.Email });
+    return Results.Ok(new { email = result.User.Email });
 });
 
 app.MapGet("/api/auth/logout", async (HttpContext context) =>
@@ -122,5 +130,6 @@ app.Run();
 
 // DTOs for auth endpoints
 record LoginRequest(string Email, string Password, string? Name = null);
-record AuthResponse(string Email, string? Name = null);
+record AuthResponse(string Token, AuthUser User);
+record AuthUser(int Id, string Email, string? Name = null);
 record ErrorResponse(string Message);

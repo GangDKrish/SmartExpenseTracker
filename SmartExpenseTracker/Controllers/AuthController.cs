@@ -1,5 +1,8 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using SmartExpenseTracker.Data;
 using SmartExpenseTracker.DTOs;
 using SmartExpenseTracker.Models;
@@ -13,10 +16,12 @@ namespace SmartExpenseTracker.Controllers
     public class AuthController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IConfiguration _configuration;
 
-        public AuthController(AppDbContext context)
+        public AuthController(AppDbContext context, IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
         [HttpPost("register")]
@@ -39,7 +44,7 @@ namespace SmartExpenseTracker.Controllers
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            return Ok(new AuthResponseDto { Email = user.Email, Name = user.Name });
+            return Ok(CreateAuthResponse(user));
         }
 
         [HttpPost("login")]
@@ -52,7 +57,49 @@ namespace SmartExpenseTracker.Controllers
             if (user == null || user.PasswordHash != HashPassword(request.Password))
                 return Unauthorized(new { message = "Invalid email or password." });
 
-            return Ok(new AuthResponseDto { Email = user.Email, Name = user.Name });
+            return Ok(CreateAuthResponse(user));
+        }
+
+        private AuthResponseDto CreateAuthResponse(User user)
+        {
+            return new AuthResponseDto
+            {
+                Token = GenerateJwtToken(user),
+                User = new AuthUserDto
+                {
+                    Id = user.Id,
+                    Email = user.Email,
+                    Name = user.Name
+                }
+            };
+        }
+
+        private string GenerateJwtToken(User user)
+        {
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            var signingKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwtSettings["SigningKey"] ?? throw new InvalidOperationException("JwtSettings:SigningKey is missing.")));
+            var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Name, string.IsNullOrWhiteSpace(user.Name) ? user.Email : user.Name)
+            };
+
+            var expirationMinutes = int.TryParse(jwtSettings["ExpirationMinutes"], out var parsedMinutes)
+                ? parsedMinutes
+                : 60;
+
+            var token = new JwtSecurityToken(
+                issuer: jwtSettings["Issuer"],
+                audience: jwtSettings["Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(expirationMinutes),
+                signingCredentials: credentials);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
         private static string HashPassword(string password)
