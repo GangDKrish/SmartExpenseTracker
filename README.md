@@ -1,1022 +1,1232 @@
-# CommerceHub
+# SmartExpenseTracker
 
-> A .NET 10 microservices-based e-commerce platform demonstrating REST APIs, gRPC service-to-service communication, distributed transaction compensation, asynchronous messaging, background processing, and Entity Framework Core with SQLite.
+> A full-stack expense management application built with **.NET 10, ASP.NET Core Web API, Blazor Server, CQRS with MediatR, Entity Framework Core, SQLite, JWT authentication, and Chart.js**.
+
+SmartExpenseTracker is designed to demonstrate modern .NET application development across both backend and frontend layers, with a focus on **separation of concerns, CQRS, authentication, user-scoped data, reusable Blazor components, and a responsive user experience**.
+
+---
 
 ## Overview
 
-**CommerceHub** is a backend-focused e-commerce platform built with **C# and ASP.NET Core**.
+SmartExpenseTracker consists of two applications:
 
-The project is designed to demonstrate practical microservices and distributed-systems concepts rather than simply implementing CRUD APIs.
+* **SmartExpenseTracker** — ASP.NET Core Web API backend
+* **ExpenseTrackerUI** — Blazor Server frontend
 
-The system is composed of three independently responsible services:
-
-* **ProductService** — Product catalog and product queries
-* **InventoryService** — Stock management and inventory reservations
-* **OrderService** — Order creation and orchestration
-
-The project demonstrates an important architectural distinction:
+The frontend communicates with the backend through HTTP REST APIs.
 
 ```text
-External Client
-      |
-      | REST
-      v
-+------------------+
-|   OrderService   |
-+------------------+
-      |
-      | gRPC
-      v
-+---------------------+
-|  InventoryService   |
-+---------------------+
-
-+------------------+
-| ProductService   |
-+------------------+
-
-OrderService
-     |
-     v
-OrderCreatedEvent
-     |
-     v
-In-Memory Channel<T>
-     |
-     v
-BackgroundService
-     |
-     v
-Order Audit
+                    ┌──────────────────────────┐
+                    │      ExpenseTrackerUI    │
+                    │      Blazor Server       │
+                    │                          │
+                    │  • Login / Register      │
+                    │  • Expense Dashboard     │
+                    │  • Add / Edit / Delete    │
+                    │  • Statistics            │
+                    │  • Charts                │
+                    │  • Dark Mode             │
+                    └────────────┬─────────────┘
+                                 │
+                                 │ HTTP / REST
+                                 ▼
+                    ┌──────────────────────────┐
+                    │   SmartExpenseTracker    │
+                    │   ASP.NET Core Web API   │
+                    │                          │
+                    │  Controllers             │
+                    │       ↓                  │
+                    │  MediatR / CQRS          │
+                    │       ↓                  │
+                    │  EF Core                 │
+                    └────────────┬─────────────┘
+                                 │
+                                 ▼
+                    ┌──────────────────────────┐
+                    │          SQLite          │
+                    │                          │
+                    │  Users                   │
+                    │  Expenses                │
+                    └──────────────────────────┘
 ```
 
 ---
 
-## Key Features
+# Key Features
 
-* Microservices architecture with clear service ownership
-* ASP.NET Core REST APIs
-* Strongly typed gRPC communication
+* Full-stack application using C# across backend and frontend
+* ASP.NET Core Web API
+* Blazor Server with Interactive Server rendering
+* CQRS using MediatR
+* Separate Command and Query handlers
 * Entity Framework Core
-* SQLite persistence
-* DTO-based API and messaging contracts
-* Product CRUD operations
-* Complex product querying
-* HTTP `QUERY` demonstration for complex read operations
-* Inventory reservation and release
-* Distributed transaction compensation
-* In-memory producer-consumer messaging using `Channel<T>`
-* Background processing using `.NET BackgroundService`
-* Asynchronous order auditing
-* Swagger / OpenAPI
-* Dependency Injection
-* Async/Await
+* SQLite database
 * EF Core migrations
+* JWT-based API authentication
+* Cookie-based authentication session in the Blazor UI
+* Claims-based user identification
+* User-scoped expense data
+* DTO-based API contracts
+* AutoMapper
+* RESTful CRUD APIs
+* Bootstrap 5 responsive UI
+* Chart.js data visualization
+* JavaScript interop from Blazor
+* Dark mode with persisted theme
+* Toast notifications
+* Loading skeletons
+* Confirmation modal for deletion
+* Responsive desktop/mobile UI
 
 ---
 
 # Architecture
 
-CommerceHub separates business responsibilities across independent services.
+The application follows a layered approach where responsibilities are separated between the UI, API controllers, CQRS handlers, and persistence layer.
 
 ```text
-                         ┌──────────────────┐
-                         │      Client      │
-                         └────────┬─────────┘
-                                  │
-                         REST / HTTP APIs
-                                  │
-              ┌───────────────────┼───────────────────┐
-              │                   │                   │
-              ▼                   ▼                   ▼
-     ┌────────────────┐  ┌────────────────┐  ┌────────────────┐
-     │ ProductService │  │InventoryService│  │ OrderService   │
-     └───────┬────────┘  └───────▲────────┘  └───────┬────────┘
-             │                   │                   │
-             │                   │      gRPC         │
-             │                   └───────────────────┘
-             │
-             ▼
-          SQLite
-
-OrderService
-     │
-     │ OrderCreatedEventDTO
-     ▼
-┌──────────────────────┐
-│ In-Memory Channel<T> │
-└──────────┬───────────┘
-           │
-           ▼
-┌─────────────────────────────┐
-│ OrderMessageBackgroundService│
-└────────────┬────────────────┘
-             │
-             ▼
-       OrderAudit
-             │
-             ▼
-          SQLite
+┌───────────────────────────────────────────────┐
+│               ExpenseTrackerUI                │
+│                 Blazor Server                │
+│                                               │
+│  Pages / Components                           │
+│        │                                      │
+│        ▼                                      │
+│  IExpenseService / ExpenseService             │
+└──────────────────────┬────────────────────────┘
+                       │
+                       │ HTTP REST
+                       ▼
+┌───────────────────────────────────────────────┐
+│             SmartExpenseTracker               │
+│             ASP.NET Core Web API              │
+│                                               │
+│  Controllers                                  │
+│       │                                       │
+│       ▼                                       │
+│  IMediator                                    │
+│       │                                       │
+│       ├───────────────┐                       │
+│       ▼               ▼                       │
+│   Commands          Queries                   │
+│       │               │                       │
+│       ▼               ▼                       │
+│   Handlers          Handlers                  │
+│       │               │                       │
+│       └───────┬───────┘                       │
+│               ▼                               │
+│          AppDbContext                         │
+└───────────────┬───────────────────────────────┘
+                │
+                ▼
+             SQLite
 ```
-
-### Service Responsibilities
-
-| Service                 | Responsibility                      | Communication       |
-| ----------------------- | ----------------------------------- | ------------------- |
-| ProductService          | Product catalog and product queries | REST + gRPC         |
-| InventoryService        | Inventory and reservations          | REST + gRPC         |
-| OrderService            | Order orchestration                 | REST + gRPC         |
-| Order background worker | Asynchronous audit processing       | In-memory messaging |
-
-Each service owns its own data access and business responsibility rather than allowing another service to directly manipulate its database.
 
 ---
 
 # Technology Stack
 
-| Technology            | Purpose                                   |
-| --------------------- | ----------------------------------------- |
-| C#                    | Primary programming language              |
-| .NET 10               | Application runtime                       |
-| ASP.NET Core          | REST APIs and service hosting             |
-| Entity Framework Core | ORM / persistence                         |
-| SQLite                | Local database                            |
-| gRPC                  | Internal service-to-service communication |
-| Protocol Buffers      | gRPC contracts                            |
-| `Channel<T>`          | In-memory asynchronous messaging          |
-| `BackgroundService`   | Background event processing               |
-| Swagger / OpenAPI     | API exploration and testing               |
-| Dependency Injection  | Service composition                       |
-| Async/Await           | Asynchronous I/O                          |
+| Technology               | Purpose                         |
+| ------------------------ | ------------------------------- |
+| C#                       | Primary programming language    |
+| .NET 10                  | Application runtime             |
+| ASP.NET Core             | REST API                        |
+| Blazor Server            | Frontend UI                     |
+| Entity Framework Core 10 | Data access / ORM               |
+| SQLite                   | Database                        |
+| MediatR                  | CQRS implementation             |
+| AutoMapper               | Object mapping                  |
+| JWT Bearer               | API authentication              |
+| Cookie Authentication    | Blazor UI session               |
+| Swagger / OpenAPI        | API documentation and testing   |
+| Bootstrap 5              | Responsive UI                   |
+| Chart.js                 | Expense visualization           |
+| JavaScript Interop       | Blazor ↔ JavaScript integration |
 
 ---
 
-# 1. ProductService
+# Backend — SmartExpenseTracker
 
-`ProductService` owns the product catalog.
+The backend is an ASP.NET Core Web API targeting .NET 10.
 
-### Responsibilities
+Its main responsibilities are:
 
-* Create products
-* Retrieve products
-* Update products
-* Delete products
-* Search products
-* Filter products by category and price
-* Perform complex product queries
+* Authentication
+* Expense management
+* User authorization
+* User-scoped data access
+* CQRS processing
+* Database persistence
 
-### REST APIs
+---
+
+# CQRS Architecture
+
+The application uses **CQRS — Command Query Responsibility Segregation** through MediatR.
+
+Write operations are represented as commands:
 
 ```text
-GET     /api/products
-GET     /api/products/{id}
-POST    /api/products
-PUT     /api/products/{id}
-DELETE  /api/products/{id}
-GET     /api/products/search
+AddExpenseCommand
+UpdateExpenseCommand
+DeleteExpenseCommand
 ```
 
-Products are persisted using:
+Read operations are represented as queries:
 
 ```text
-ASP.NET Core
-     |
-Entity Framework Core
-     |
+GetExpensesQuery
+```
+
+Each operation has its own handler.
+
+```text
+Controller
+    │
+    ▼
+IMediator
+    │
+    ├── AddExpenseCommand
+    │       ↓
+    │   AddExpenseHandler
+    │
+    ├── UpdateExpenseCommand
+    │       ↓
+    │   UpdateExpenseHandler
+    │
+    ├── DeleteExpenseCommand
+    │       ↓
+    │   DeleteExpenseHandler
+    │
+    └── GetExpensesQuery
+            ↓
+        GetExpensesHandler
+```
+
+This keeps individual business operations isolated and gives each handler a focused responsibility.
+
+---
+
+# Why CQRS?
+
+Instead of putting all database operations inside a controller:
+
+```text
+Controller
+    ├── Add
+    ├── Update
+    ├── Delete
+    └── Get
+```
+
+the application separates the operations:
+
+```text
+Commands
+   ├── Add
+   ├── Update
+   └── Delete
+
+Queries
+   └── Get
+```
+
+This makes the application easier to extend as the number of operations grows.
+
+MediatR acts as the mediator between the controller and the appropriate handler.
+
+---
+
+# Repository and EF Core
+
+The application intentionally uses `AppDbContext` directly inside CQRS handlers rather than introducing a generic repository layer.
+
+```text
+Controller
+     │
+     ▼
+MediatR
+     │
+     ▼
+CQRS Handler
+     │
+     ▼
+AppDbContext
+     │
+     ▼
+EF Core
+     │
+     ▼
 SQLite
 ```
 
----
-
-# 2. DTO-Based Contracts
-
-The services do not expose persistence entities directly through their APIs.
-
-DTOs are used to keep API contracts separate from database models.
-
-```text
-Database Entity
-      |
-      v
-    Mapping
-      |
-      v
-     DTO
-      |
-      v
- API Response
-```
-
-Examples include:
-
-```text
-ProductResponseDTO
-ProductQueryRequestDTO
-
-CreateOrderRequestDTO
-CreateOrderItemRequestDTO
-OrderResponseDTO
-
-CreateInventoryRequestDTO
-InventoryResponseDTO
-
-OrderCreatedEventDTO
-```
-
-This allows persistence models and external contracts to evolve independently.
+The project treats `DbContext` as the data-access abstraction and avoids adding another repository abstraction on top of EF Core where it would provide little additional value.
 
 ---
 
-# 3. Complex Product Queries
+# Authentication & Authorization
 
-ProductService demonstrates complex product filtering using a query request containing multiple criteria.
+The backend uses **JWT Bearer authentication**.
 
-Example:
-
-```json
-{
-  "category": "Accessories",
-  "minPrice": 1000,
-  "maxPrice": 5000,
-  "searchTerm": "Keyboard",
-  "sortBy": "price",
-  "sortDescending": true,
-  "page": 1,
-  "pageSize": 10
-}
-```
-
-The project also demonstrates the HTTP `QUERY` method for sending complex read criteria in the request body.
-
-The motivation is to avoid unnecessarily large or complicated query strings when a read operation contains many filtering and sorting parameters.
-
----
-
-# 4. InventoryService
-
-`InventoryService` owns inventory and stock management.
-
-### Responsibilities
-
-* Retrieve inventory
-* Create inventory
-* Reserve inventory
-* Release reserved inventory
-
-Example inventory state:
+Authentication endpoints:
 
 ```text
-AvailableQuantity
-ReservedQuantity
+POST /api/auth/register
+POST /api/auth/login
 ```
 
-When inventory is reserved:
+A successful authentication returns a JWT containing user information.
 
-```text
-AvailableQuantity -= requested quantity
-ReservedQuantity  += requested quantity
-```
-
-When a reservation is released:
-
-```text
-ReservedQuantity  -= released quantity
-AvailableQuantity += released quantity
-```
-
-The important architectural principle is that **OrderService does not directly modify inventory data**.
-
-Inventory remains owned by `InventoryService`.
-
----
-
-# 5. gRPC Communication
-
-CommerceHub uses **REST for client-facing APIs** and **gRPC for internal service-to-service communication**.
-
-```text
-Client
-  |
-  | REST
-  v
-OrderService
-  |
-  | gRPC
-  v
-InventoryService
-```
-
-The gRPC contract is defined using Protocol Buffers.
-
-Inventory exposes operations such as:
-
-```text
-CheckAvailability
-ReserveInventory
-ReleaseInventory
-```
-
-### Why gRPC?
-
-gRPC provides:
-
-* Strongly typed contracts
-* Efficient service-to-service communication
-* Contract-driven APIs
-* Generated client/server implementations
-* A good fit for backend-to-backend communication
-
-The OrderService uses a strongly typed generated gRPC client rather than calling InventoryService's REST endpoint.
-
----
-
-# 6. Order Creation Flow
-
-Order creation is where several distributed-system concepts come together.
-
-```text
-Client
-  |
-  v
-OrderService
-  |
-  v
-Validate Order
-  |
-  v
-Get Product Information
-  |
-  v
-Reserve Inventory
-  |
-  | gRPC
-  v
-InventoryService
-  |
-  +----------------------+
-  |                      |
-Success                Failure
-  |                      |
-  v                      v
-Continue              Reject Order
-  |
-  v
-Persist Order
-  |
-  v
-Create OrderCreatedEventDTO
-  |
-  v
-Enqueue Event
-  |
-  v
-Return Response
-```
-
-The order workflow does not require another service to directly access the OrderService database.
-
----
-
-# 7. Distributed Transaction Compensation
-
-An order can contain multiple items, meaning multiple inventory reservations may be required.
-
-Consider:
-
-```text
-Item A → Reservation succeeds
-Item B → Reservation succeeds
-Item C → Reservation fails
-```
-
-Simply rejecting the order would leave the reservations for A and B active.
-
-CommerceHub therefore implements a **compensation mechanism**:
-
-```text
-Item A → Reserved
-Item B → Reserved
-Item C → Failed
-             |
-             v
-       Compensation
-         /       \
-        v         v
- Release A    Release B
-        \         /
-         v       v
-        Order Rejected
-```
-
-This demonstrates an important distributed-systems principle:
-
-> A distributed workflow cannot rely on a single traditional database transaction across multiple independent services.
-
-Instead, previously completed operations can require **compensating actions** when a later operation fails.
-
----
-
-# 8. Asynchronous Messaging
-
-After an order is successfully created, CommerceHub publishes an `OrderCreatedEventDTO` to an in-memory queue.
-
-```text
-OrderService
-     |
-     v
-OrderCreatedEventDTO
-     |
-     v
-Channel<T>
-     |
-     v
-BackgroundService
-     |
-     v
-Order Audit
-```
-
-The queue uses .NET's:
+Protected expense endpoints use:
 
 ```csharp
-System.Threading.Channels.Channel<T>
+[Authorize]
 ```
 
-This implements a producer-consumer pattern.
+The authenticated user's identity is obtained from JWT claims.
 
-### Producer
-
-The order workflow publishes the event:
+The application then uses the user's email as the `UserId` associated with expenses.
 
 ```text
-Order Created
-     |
-     v
-Enqueue Event
+User Login
+    │
+    ▼
+JWT Token
+    │
+    ▼
+Authorization Header
+    │
+    ▼
+[Authorize]
+    │
+    ▼
+User Claims
+    │
+    ▼
+User-scoped Expenses
 ```
 
-### Consumer
-
-A hosted background service consumes the event:
-
-```text
-Channel<T>
-    |
-    v
-OrderMessageBackgroundService
-    |
-    v
-Create OrderAudit
-```
-
-The main order request does not need to wait for the audit operation to complete.
-
-This demonstrates how secondary/non-critical work can be decoupled from the main request path.
+This prevents users from retrieving or modifying another user's expenses.
 
 ---
 
-# 9. Background Processing
+# API Endpoints
 
-`OrderMessageBackgroundService` inherits from:
+## Authentication
 
-```csharp
-BackgroundService
-```
+| Method | Route                | Description         |
+| ------ | -------------------- | ------------------- |
+| `POST` | `/api/auth/register` | Register a new user |
+| `POST` | `/api/auth/login`    | Authenticate a user |
 
-Its responsibility is to continuously consume queued order events.
+## Expenses
 
-```text
-OrderCreatedEventDTO
-        |
-        v
-   Channel<T>
-        |
-        v
-BackgroundService
-        |
-        v
-   OrderAudit
-        |
-        v
-      SQLite
-```
-
-This provides a simple demonstration of asynchronous background processing without introducing an external message broker.
+| Method   | Route               | Description                             |
+| -------- | ------------------- | --------------------------------------- |
+| `GET`    | `/api/expense`      | Get expenses for the authenticated user |
+| `GET`    | `/api/expense/{id}` | Get a specific expense                  |
+| `POST`   | `/api/expense`      | Create an expense                       |
+| `PUT`    | `/api/expense/{id}` | Update an expense                       |
+| `DELETE` | `/api/expense/{id}` | Delete an expense                       |
 
 ---
 
-# 10. Why In-Memory Messaging Instead of RabbitMQ?
+# User Data Isolation
 
-The project intentionally uses an in-memory `Channel<T>` instead of RabbitMQ.
+One of the important backend responsibilities is ensuring that users only access their own expenses.
 
-For a single-process demonstration, an in-memory queue is sufficient to demonstrate:
-
-* Producer-consumer messaging
-* Event publishing
-* Asynchronous processing
-* Background workers
-* Decoupling
-
-However, it has important limitations.
-
-### Limitations
-
-* Messages are not durable
-* Messages can be lost if the process terminates
-* It is limited to the application's process
-* It is not suitable as a production distributed message broker
-
-For a production deployment, the queue could be replaced with a durable messaging platform such as:
+For example, the query handler filters by the authenticated user's identity:
 
 ```text
-RabbitMQ
-Azure Service Bus
-Kafka
+Authenticated User
+        │
+        ▼
+     UserId
+        │
+        ▼
+┌─────────────────────────┐
+│ Expenses                │
+│                         │
+│ User A → Expense 1      │
+│ User A → Expense 2      │
+│ User B → Expense 3      │
+└─────────────────────────┘
+        │
+        ▼
+Only User A's records
+are returned to User A
 ```
 
-The important architectural concept remains the same:
+Update and delete operations also verify that the expense belongs to the current user before modifying it.
+
+---
+
+# Data Model
+
+## User
 
 ```text
-Producer
-   |
-   v
-Message Broker
-   |
-   v
-Consumer
+User
+├── Id
+├── Email
+├── Name
+└── PasswordHash
+```
+
+## Expense
+
+```text
+Expense
+├── Id
+├── Title
+├── Amount
+├── Category
+├── Date
+└── UserId
+```
+
+The database uses indexes for user lookup and enforces unique email addresses.
+
+```text
+Users
+  │
+  └── Email → Unique Index
+
+Expenses
+  │
+  └── UserId → Index
 ```
 
 ---
 
-# 11. Order Auditing
+# AutoMapper
 
-The asynchronous messaging mechanism has a real business purpose: **order auditing**.
+AutoMapper is used to map between different application models.
 
-When an order is successfully created:
-
-```text
-Order Created
-     |
-     v
-OrderCreatedEventDTO
-     |
-     v
-Channel<T>
-     |
-     v
-Background Worker
-     |
-     v
-OrderAudit
-     |
-     v
-SQLite
-```
-
-An audit record contains information such as:
+For example:
 
 ```text
-OrderId
-EventType
-CreatedAt
+DTO / Command
+      │
+      ▼
+  AutoMapper
+      │
+      ▼
+Expense Entity
 ```
+
+This helps keep API/request models separate from persistence entities.
+
+---
+
+# Frontend — ExpenseTrackerUI
+
+The frontend is implemented using **Blazor Server** with Interactive Server rendering.
+
+The UI provides a complete expense-management experience.
+
+### Main screens and components
+
+| Component                  | Responsibility           |
+| -------------------------- | ------------------------ |
+| `Login.razor`              | Login and registration   |
+| `Expenses.razor`           | Main expense dashboard   |
+| `ExpenseChart.razor`       | Expense visualization    |
+| `StatCard.razor`           | Reusable statistics card |
+| `DeleteConfirmModal.razor` | Delete confirmation      |
+| `LoadingSkeleton.razor`    | Loading state            |
+| `MainLayout.razor`         | Application layout       |
+
+---
+
+# Expense Dashboard
+
+The dashboard provides:
+
+* Total spending
+* Average expense
+* Highest expense
+* Number of expenses
+* Category-based spending visualization
+* Expense listing
+* Add expense
+* Edit expense
+* Delete expense
+
+Conceptually:
+
+```text
+┌─────────────────────────────────────────────┐
+│              Expense Dashboard              │
+├───────────┬───────────┬───────────┬─────────┤
+│   Total   │  Average  │  Highest  │  Count  │
+├───────────┴───────────┴───────────┴─────────┤
+│                                             │
+│          Spending by Category               │
+│              Chart.js                      │
+│                                             │
+├─────────────────────────────────────────────┤
+│ Expense List                                │
+│                                             │
+│ Food       ₹500        Edit    Delete       │
+│ Travel     ₹1200       Edit    Delete       │
+│ Bills      ₹2000       Edit    Delete       │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+# Chart.js Integration
+
+The application uses Chart.js to visualize spending by category.
+
+Blazor communicates with JavaScript using **JS Interop**.
+
+```text
+Blazor Component
+       │
+       ▼
+IJSRuntime
+       │
+       ▼
+JavaScript
+       │
+       ▼
+Chart.js
+       │
+       ▼
+Expense Chart
+```
+
+The chart groups expenses by category and calculates the total spending for each category before rendering the visualization.
+
+---
+
+# Reusable Blazor Components
+
+The UI contains reusable components rather than putting everything into one Razor page.
+
+For example:
+
+```text
+ExpenseChart
+StatCard
+DeleteConfirmModal
+LoadingSkeleton
+```
+
+This allows common UI behavior to be isolated and reused.
 
 Example:
 
 ```text
-OrderId        EventType       CreatedAt
-------------------------------------------------
-12345          OrderCreated    2026-08-24...
-```
-
-The audit operation is intentionally separated from the main order transaction.
-
----
-
-# 12. Complete End-to-End Flow
-
-The complete order workflow can be summarized as:
-
-```text
-                         CLIENT
-                           |
-                           | REST
-                           v
-                    ┌──────────────┐
-                    │ OrderService │
-                    └──────┬───────┘
-                           |
-                           | gRPC
-                           v
-                  ┌──────────────────┐
-                  │ InventoryService │
-                  └────────┬─────────┘
-                           |
-                  Reserve Inventory
-                           |
-                +----------+----------+
-                |                     |
-             Success                Failure
-                |                     |
-                v                     v
-          Create Order           Compensation
-                |                     |
-                v                     v
-          Save Order            Release Previous
-                |                 Reservations
-                v
-      OrderCreatedEventDTO
-                |
-                v
-         Channel<OrderEvent>
-                |
-                v
-       BackgroundService
-                |
-                v
-          OrderAudit
-                |
-                v
-              SQLite
+Expenses.razor
+      │
+      ├── StatCard
+      ├── StatCard
+      ├── StatCard
+      ├── ExpenseChart
+      ├── LoadingSkeleton
+      └── DeleteConfirmModal
 ```
 
 ---
 
-# 13. Database Design
+# UI Authentication Flow
 
-Each service uses SQLite for local persistence.
+The frontend maintains its own authenticated UI session using cookie authentication.
 
-### ProductService
-
-```text
-Products
-```
-
-### InventoryService
+The overall authentication flow is:
 
 ```text
-InventoryItems
+User
+ │
+ ▼
+Blazor Login Page
+ │
+ ▼
+POST /api/auth/login
+ │
+ ▼
+ASP.NET Core API
+ │
+ ▼
+JWT Token
+ │
+ ▼
+Blazor UI
+ │
+ ▼
+Cookie Authentication Session
+ │
+ ▼
+Authenticated UI
 ```
 
-### OrderService
+The token is retained as part of the authenticated claims and is used when making user-scoped API requests.
+
+---
+
+# API Communication
+
+The frontend uses:
 
 ```text
-Orders
-OrderItems
-OrderAudits
+IExpenseService
+        │
+        ▼
+ExpenseService
+        │
+        ▼
+HttpClient
+        │
+        ▼
+SmartExpenseTracker API
 ```
 
-Entity Framework Core is responsible for:
+The service abstraction keeps HTTP communication separate from Razor components.
+
+This means the UI does not need to directly construct API requests throughout every page.
+
+---
+
+# UI/UX Features
+
+The project goes beyond basic CRUD functionality.
+
+### Dark Mode
+
+The application supports light and dark themes with theme persistence.
+
+### Toast Notifications
+
+Users receive feedback for successful and failed operations.
+
+### Loading Skeletons
+
+Skeleton placeholders are displayed while data is being loaded.
+
+### Delete Confirmation
+
+Deleting an expense requires confirmation through a reusable modal component.
+
+### Responsive Layout
+
+The interface is designed to work across desktop and mobile screen sizes.
+
+### Data Visualization
+
+Expense categories are visualized using Chart.js.
+
+---
+
+# Complete Request Flow
+
+A typical expense creation flow looks like this:
+
+```text
+User
+ │
+ ▼
+Blazor Expense Page
+ │
+ ▼
+IExpenseService
+ │
+ ▼
+HttpClient
+ │
+ │ POST /api/expense
+ ▼
+SmartExpenseTracker API
+ │
+ ▼
+ExpenseController
+ │
+ ▼
+IMediator
+ │
+ ▼
+AddExpenseCommand
+ │
+ ▼
+AddExpenseHandler
+ │
+ ▼
+AppDbContext
+ │
+ ▼
+EF Core
+ │
+ ▼
+SQLite
+ │
+ ▼
+Response
+ │
+ ▼
+Blazor UI
+```
+
+---
+
+# Complete Read Flow
+
+For retrieving expenses:
+
+```text
+Blazor UI
+    │
+    ▼
+GET /api/expense
+    │
+    ▼
+ExpenseController
+    │
+    ▼
+IMediator
+    │
+    ▼
+GetExpensesQuery
+    │
+    ▼
+GetExpensesHandler
+    │
+    ▼
+AppDbContext
+    │
+    ▼
+SQLite
+    │
+    ▼
+Filter by UserId
+    │
+    ▼
+Expenses
+    │
+    ▼
+Blazor Dashboard
+```
+
+---
+
+# Project Structure
+
+```text
+SmartExpenseTracker/
+│
+├── SmartExpenseTracker/
+│   │
+│   ├── Controllers/
+│   │   ├── AuthController.cs
+│   │   ├── ExpenseController.cs
+│   │   └── WeatherForecastController.cs
+│   │
+│   ├── CQRS/
+│   │   ├── Commands/
+│   │   │   ├── AddExpenseCommand.cs
+│   │   │   ├── AddExpenseHandler.cs
+│   │   │   ├── UpdateExpenseCommand.cs
+│   │   │   ├── UpdateExpenseHandler.cs
+│   │   │   ├── DeleteExpenseCommand.cs
+│   │   │   └── DeleteExpenseHandler.cs
+│   │   │
+│   │   └── Queries/
+│   │       ├── GetExpensesQuery.cs
+│   │       └── GetExpensesHandler.cs
+│   │
+│   ├── Data/
+│   │   └── AppDbContext.cs
+│   │
+│   ├── DTOs/
+│   │
+│   ├── Models/
+│   │   ├── Expense.cs
+│   │   └── User.cs
+│   │
+│   ├── Migrations/
+│   │
+│   ├── Mapping/
+│   │
+│   ├── Program.cs
+│   └── SmartExpenseTracker.csproj
+│
+├── ExpenseTrackerUI/
+│   │
+│   ├── Components/
+│   │   ├── Layout/
+│   │   ├── ExpenseChart.razor
+│   │   ├── StatCard.razor
+│   │   ├── DeleteConfirmModal.razor
+│   │   └── LoadingSkeleton.razor
+│   │
+│   ├── Pages/
+│   │   ├── Login.razor
+│   │   └── Expenses.razor
+│   │
+│   ├── Services/
+│   │   ├── IExpenseService.cs
+│   │   └── ExpenseService.cs
+│   │
+│   ├── Models/
+│   ├── wwwroot/
+│   ├── Program.cs
+│   └── ExpenseTrackerUI.csproj
+│
+└── SmartExpenseTracker.slnx
+```
+
+---
+
+# Database
+
+SQLite is used for local persistence.
+
+```text
+                    SQLite
+                       │
+            ┌──────────┴──────────┐
+            │                     │
+          Users                 Expenses
+            │                     │
+            │                     │
+          Id                    Id
+          Email                 Title
+          Name                  Amount
+          PasswordHash          Category
+                                Date
+                                UserId
+```
+
+Entity Framework Core handles:
 
 * Database access
 * Entity mapping
 * Migrations
+* Querying
 * Persistence
 
-The project includes EF Core migrations for the service databases.
-
 ---
 
-# 14. Project Structure
-
-```text
-CommerceHub/
-│
-├── CommerceHub.ProductService/
-│   ├── Controllers/
-│   ├── Data/
-│   ├── DTOs/
-│   ├── Models/
-│   ├── Migrations/
-│   ├── Protos/
-│   ├── Services/
-│   └── Program.cs
-│
-├── CommerceHub.InventoryService/
-│   ├── Controllers/
-│   ├── Data/
-│   ├── DTOs/
-│   ├── Models/
-│   ├── Migrations/
-│   ├── Protos/
-│   ├── GrpcServices/
-│   └── Program.cs
-│
-├── CommerceHub.OrderService/
-│   ├── Controllers/
-│   ├── Data/
-│   ├── DTOs/
-│   ├── Events/
-│   ├── Messaging/
-│   ├── Models/
-│   ├── Migrations/
-│   ├── Services/
-│   └── Program.cs
-│
-├── CommerceHub.slnx
-├── CommerceHub.slnLaunch
-├── Notes.txt
-└── ProjectSummary.txt
-```
-
-The solution contains all three services and includes a multi-project launch configuration for starting them together.
-
----
-
-# 15. Local Development
+# Local Development
 
 ## Prerequisites
 
 * Visual Studio 2026 or compatible .NET IDE
 * .NET 10 SDK
-* HTTPS development certificate configured
 * Git
+* HTTPS development certificate
 
-No external database server or message broker is required.
-
-The application uses SQLite and the in-memory `Channel<T>` messaging implementation.
+No external database server is required because the application uses SQLite.
 
 ---
 
-## Running the Application
+# Running the Application
 
 Open:
 
 ```text
-CommerceHub.slnx
+SmartExpenseTracker.slnx
 ```
 
-The repository includes a launch configuration for starting:
+The solution contains both:
 
 ```text
-CommerceHub.ProductService
-CommerceHub.InventoryService
-CommerceHub.OrderService
+SmartExpenseTracker
+ExpenseTrackerUI
 ```
 
-The services can also be started individually from Visual Studio.
+### Backend
 
-### Service endpoints
-
-| Service          | HTTP                    | HTTPS / gRPC             |
-| ---------------- | ----------------------- | ------------------------ |
-| ProductService   | `http://localhost:5139` | `https://localhost:7178` |
-| InventoryService | `http://localhost:5232` | `https://localhost:7179` |
-| OrderService     | `http://localhost:5104` | `https://localhost:7296` |
-
-The HTTPS endpoints for ProductService and InventoryService are used by OrderService for gRPC communication.
-
-Swagger/OpenAPI is available when running the services in Development mode.
-
----
-
-# 16. Suggested Test Flow
-
-A complete demonstration can be performed in the following order:
-
-### Step 1 — Create a Product
+Run:
 
 ```text
-POST /api/products
+SmartExpenseTracker
 ```
 
-Create a product and capture its `ProductId`.
-
-### Step 2 — Create Inventory
+Default development URL:
 
 ```text
-POST /api/inventory
+https://localhost:7162
 ```
 
-Associate inventory with the product.
-
-### Step 3 — Verify Inventory
+Swagger:
 
 ```text
-GET /api/inventory/{productId}
+https://localhost:7162/swagger
 ```
 
-Verify the available and reserved quantities.
+### Frontend
 
-### Step 4 — Create an Order
+Run:
 
 ```text
-POST /api/orders
+ExpenseTrackerUI
 ```
 
-The OrderService will:
-
-1. Validate the request
-2. Retrieve required product information
-3. Reserve inventory using gRPC
-4. Create the order
-5. Persist the order
-6. Publish `OrderCreatedEventDTO`
-7. Return the order response
-
-### Step 5 — Verify Inventory Reservation
+Default development URL:
 
 ```text
-GET /api/inventory/{productId}
+https://localhost:7184
 ```
 
-The available quantity should be reduced and the reserved quantity increased.
-
-### Step 6 — Verify Order
+The frontend is configured to communicate with:
 
 ```text
-GET /api/orders/{orderId}
-```
-
-### Step 7 — Verify Asynchronous Audit
-
-The background worker consumes the event and creates an `OrderAudit` record.
-
-### Step 8 — Test Compensation
-
-Create an order containing multiple items where a later inventory reservation fails.
-
-Expected behavior:
-
-```text
-Earlier reservations
-        |
-        v
-Compensation
-        |
-        v
-Reservations released
-        |
-        v
-Order rejected
+https://localhost:7162/
 ```
 
 ---
 
-# 17. Design Decisions
+# Suggested Demo Flow
 
-## Why REST?
+A complete demonstration can be performed as follows.
 
-REST is used for client-facing APIs because it is simple, widely supported, and well suited to resource-oriented operations.
+### 1. Register
 
-```text
-Client → REST → Service
-```
-
-## Why gRPC?
-
-gRPC is used for internal service-to-service calls where strongly typed contracts and efficient communication are useful.
+Open the Blazor application and create a user.
 
 ```text
-Service → gRPC → Service
+Login → Register
 ```
 
-## Why DTOs?
+### 2. Login
 
-DTOs prevent API contracts from becoming tightly coupled to persistence entities.
+Authenticate using the newly created credentials.
+
+### 3. Add Expenses
+
+Create several expenses:
 
 ```text
-API Contract ≠ Database Model
+Food      ₹500
+Travel    ₹1500
+Bills     ₹2500
+Shopping  ₹1000
 ```
 
-## Why Compensation?
+### 4. View Dashboard
 
-Multiple inventory reservations span service boundaries. A single local database transaction cannot roll back changes made by another service.
-
-Compensation provides a way to undo previously completed business operations when a later operation fails.
-
-## Why Asynchronous Processing?
-
-Order auditing is secondary work and does not need to block the primary order creation response.
-
-Therefore:
+The dashboard calculates:
 
 ```text
-Critical path
-    ↓
-Create Order
-    ↓
-Return Response
-
-Secondary work
-    ↓
-Audit Event
-    ↓
-Background Processing
+Total
+Average
+Highest
+Count
 ```
 
-## Why `Channel<T>`?
+and displays the category distribution using a chart.
 
-It provides a lightweight producer-consumer mechanism without requiring external infrastructure.
+### 5. Edit Expense
 
-For this demonstration, it keeps the project easy to run locally while still showing the architectural messaging pattern.
+Open an expense and modify:
+
+```text
+Title
+Amount
+Category
+```
+
+### 6. Delete Expense
+
+Use the delete action and confirm through the confirmation modal.
+
+### 7. Verify User Isolation
+
+Create another user and verify that each user sees only their own expenses.
 
 ---
 
-# 18. Production Considerations
+# Design Decisions
 
-This project intentionally keeps infrastructure lightweight for local development and learning.
+## Why Blazor Server?
 
-A production implementation could evolve toward:
+Blazor Server allows the frontend to be developed using C# and Razor components while still providing a rich interactive application experience.
+
+It also allows the project to demonstrate:
+
+* Component-based UI
+* Dependency injection
+* Authentication
+* JavaScript interop
+* HTTP API communication
+
+---
+
+## Why CQRS?
+
+CQRS separates reads from writes.
 
 ```text
-Current                         Production Option
----------------------------------------------------------
-SQLite                    →     PostgreSQL / SQL Server
-Channel<T>                →     RabbitMQ / Azure Service Bus
-Simple compensation      →     Saga / workflow orchestration
-Local services            →     Containerized services
-Basic APIs               →     Authentication + Authorization
-Local configuration      →     Centralized configuration
-Development logging      →     Structured logging + tracing
+Write
+  ↓
+Command
+  ↓
+Command Handler
+
+
+Read
+  ↓
+Query
+  ↓
+Query Handler
 ```
 
-The goal is not to simulate a complete production platform, but to demonstrate the architectural concepts that would form the foundation of one.
+This keeps individual operations focused and provides a structure that can grow as the application becomes more complex.
 
 ---
 
-# 19. What This Project Demonstrates
+## Why MediatR?
 
-### Microservices
+MediatR decouples controllers from individual handlers.
 
-Independent services with clear business ownership.
+Instead of:
 
-### REST
+```text
+Controller → AddExpenseHandler
+```
 
-Client-facing resource APIs.
+the controller communicates through:
 
-### gRPC
+```text
+Controller → IMediator → Handler
+```
 
-Strongly typed internal service-to-service communication.
-
-### Distributed Transactions
-
-Understanding the limitations of traditional database transactions across service boundaries.
-
-### Compensation
-
-Reversing previously completed operations when a distributed workflow fails.
-
-### Asynchronous Messaging
-
-Decoupling secondary processing from the primary request.
-
-### Background Processing
-
-Using `.NET BackgroundService` to consume asynchronous work.
-
-### Producer-Consumer Pattern
-
-Using `Channel<T>` to connect producers and consumers.
-
-### Entity Framework Core
-
-ORM-based database access and migrations.
-
-### DTO Contracts
-
-Separating API/message contracts from persistence entities.
-
-### Dependency Injection
-
-Composing services through ASP.NET Core's built-in DI container.
-
-### Async Programming
-
-Using `async`/`await` for database and service communication.
+This keeps controllers thin and allows request handling to be organized independently.
 
 ---
 
-# 20. Interview Talking Points
+## Why AutoMapper?
 
-CommerceHub was designed to demonstrate practical understanding of backend and distributed-system concepts.
+AutoMapper reduces repetitive mapping code between DTOs, commands, and entities.
 
-A typical architectural explanation would be:
+```text
+DTO
+ ↓
+AutoMapper
+ ↓
+Command / Entity
+```
 
-> "CommerceHub is a .NET 10 e-commerce microservices application consisting of Product, Inventory, and Order services. Client-facing communication uses REST, while OrderService communicates with InventoryService using strongly typed gRPC. Since an order can require multiple inventory reservations, the system implements compensation to release previously reserved inventory if a later reservation fails. After successful order creation, an OrderCreated event is placed onto an in-memory Channel<T>, which is consumed by a BackgroundService to create an audit record asynchronously. SQLite and EF Core are used for lightweight local persistence, and DTOs keep API contracts separate from database entities."
+---
 
-### Concepts I can discuss from this project
+## Why SQLite?
 
-* Why use microservices?
-* Why REST vs gRPC?
-* Why should services own their data?
-* How do you handle distributed transactions?
-* What is compensation?
-* Why isn't a database transaction enough?
-* Why use asynchronous messaging?
-* Why use `Channel<T>`?
-* What are the limitations of in-memory messaging?
-* How would you replace `Channel<T>` with RabbitMQ?
-* What happens if the background worker fails?
-* What happens if inventory reservation succeeds but order creation fails?
-* How would you make the workflow more reliable?
-* How would you implement retries?
-* How would you add idempotency?
-* How would you monitor distributed requests?
-* How would you scale the services independently?
+SQLite provides:
+
+* Zero database-server setup
+* Simple local development
+* Easy portability
+* EF Core support
+
+This makes it suitable for a portfolio and learning project.
+
+---
+
+## Why JWT?
+
+JWT provides a stateless authentication mechanism for the backend API.
+
+The API can validate the token and obtain the authenticated user's claims for authorization and user-scoped data access.
+
+---
+
+# Security Considerations
+
+The current project is a **prototype / portfolio implementation**, not a production authentication system.
+
+One important limitation is that password hashing currently uses **SHA-256**.
+
+For production authentication, password storage should use a password-specific hashing algorithm such as:
+
+```text
+BCrypt
+Argon2
+PBKDF2
+```
+
+Additional production improvements could include:
+
+* Refresh tokens
+* Token rotation
+* Stronger password policies
+* Rate limiting
+* Account lockout
+* Secure secret management
+* HTTPS enforcement
+* More granular authorization policies
+
+---
+
+# Production Considerations
+
+The project is intentionally lightweight for local development.
+
+A production evolution could look like:
+
+| Current                        | Production Evolution                   |
+| ------------------------------ | -------------------------------------- |
+| SQLite                         | PostgreSQL / SQL Server                |
+| SHA-256 password hashing       | Argon2 / BCrypt / PBKDF2               |
+| Local JWT configuration        | Secure secret/key management           |
+| Simple authentication          | Refresh tokens + token rotation        |
+| Basic logging                  | Structured logging                     |
+| Local development              | Containerized deployment               |
+| Basic API                      | Rate limiting + monitoring             |
+| Single UI/API deployment model | Scaled frontend/backend infrastructure |
+
+---
+
+# What This Project Demonstrates
+
+### Backend Development
+
+* ASP.NET Core Web API
+* REST API design
+* Dependency Injection
+* Entity Framework Core
+* SQLite
+* Async programming
+* Authentication and authorization
+
+### Architecture
+
+* CQRS
+* MediatR
+* Separation of concerns
+* Handler-based request processing
+* DTO contracts
+* Data-access abstraction
+
+### Frontend Development
+
+* Blazor Server
+* Razor components
+* Reusable components
+* Component parameters
+* Event callbacks
+* HttpClient
+* JavaScript Interop
+* Responsive UI
+
+### Security
+
+* JWT authentication
+* Claims-based identity
+* `[Authorize]`
+* User-scoped data access
+* Password storage considerations
+
+### UI Engineering
+
+* Loading states
+* Toast notifications
+* Modal dialogs
+* Dark mode
+* Responsive design
+* Data visualization
+
+---
+
+# Interview Talking Points
+
+This project can be used to discuss several important .NET interview topics.
+
+### Architecture
+
+* Why did you choose CQRS?
+* What problem does MediatR solve?
+* Why separate commands and queries?
+* Why keep controllers thin?
+* Why use DTOs?
+* Why use EF Core directly instead of a generic repository?
+
+### ASP.NET Core
+
+* How does dependency injection work?
+* How does middleware work?
+* How does `[Authorize]` work?
+* How does JWT authentication work?
+* How are claims populated?
+* How does model binding work?
+
+### EF Core
+
+* What is `DbContext`?
+* What is change tracking?
+* What are migrations?
+* How does EF Core translate LINQ to SQL?
+* Why create an index on `UserId`?
+* Why enforce a unique index on email?
+
+### CQRS / MediatR
+
+* What is CQRS?
+* Command vs Query?
+* What is `IRequest<T>`?
+* What is `IRequestHandler<TRequest,TResponse>`?
+* Why use MediatR?
+* What are the advantages and disadvantages of CQRS?
+* When would CQRS be overengineering?
+
+### Blazor
+
+* Blazor Server vs Blazor WebAssembly?
+* How does component rendering work?
+* What is `IJSRuntime`?
+* How does dependency injection work in Blazor?
+* How do parent and child components communicate?
+* What are `EventCallback`s?
+* How does authentication work in Blazor?
+
+### Security
+
+* How does JWT authentication work?
+* Where should JWT secrets be stored?
+* Why is SHA-256 not ideal for password hashing?
+* How would you implement refresh tokens?
+* How do you prevent one user from accessing another user's data?
+
+---
+
+# Example Interview Explanation
+
+A concise way to explain the project in an interview:
+
+> **"SmartExpenseTracker is a full-stack .NET 10 application with an ASP.NET Core Web API backend and a Blazor Server frontend. The backend uses CQRS with MediatR, where commands and queries have separate handlers, while EF Core with SQLite handles persistence. The API uses JWT authentication and claims-based user identification to ensure users can only access their own expenses. The Blazor UI communicates with the API through an HttpClient-based service layer and provides reusable components, dashboard statistics, Chart.js visualizations, dark mode, loading states, and CRUD functionality. The project demonstrates both backend architecture and practical full-stack C# development."**
+
+---
+
+# Future Improvements
+
+Potential extensions include:
+
+* Refresh token authentication
+* Role-based authorization
+* Category management
+* Monthly expense reports
+* Budget management
+* Recurring expenses
+* Export to CSV/PDF
+* Advanced filtering and pagination
+* PostgreSQL support
+* Unit and integration tests
+* Centralized exception handling
+* FluentValidation
+* Structured logging
+* Docker deployment
+* CI/CD pipeline
+* Cloud deployment
 
 ---
 
 # License
 
-This project is intended for learning, experimentation, portfolio demonstration, and interview preparation.
+This project is intended for:
+
+* Learning
+* Experimentation
+* Portfolio demonstration
+* Interview preparation
+* Exploring modern .NET development
